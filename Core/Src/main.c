@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "stdio.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -61,7 +61,10 @@ static void MX_USART3_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+int __io_putchar(int ch) {//printfを使えるようにする関数
+    HAL_UART_Transmit(&huart3, (uint8_t *)&ch, 1, 100);
+    return ch;
+}
 /* USER CODE END 0 */
 
 /**
@@ -97,6 +100,18 @@ int main(void)
   MX_CAN2_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
+  setbuf(stdout, NULL); //printfのバッファー
+
+  HAL_CAN_Start(&hcan1);
+  HAL_CAN_Start(&hcan2);
+	//HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+  //HAL_CAN_ActivateNotification(&hcan2, CAN_IT_RX_FIFO0_MSG_PENDING);
+
+  //起動サイン
+  HAL_GPIO_WritePin(BZ_GPIO_Port, BZ_Pin, GPIO_PIN_SET);
+  HAL_Delay(100);
+  HAL_GPIO_WritePin(BZ_GPIO_Port, BZ_Pin, GPIO_PIN_RESET);
+  printf("start");
 
   /* USER CODE END 2 */
 
@@ -189,7 +204,24 @@ static void MX_CAN1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN CAN1_Init 2 */
+  CAN_FilterTypeDef CANfilter1;
+  uint32_t fId11 = 0x201 << 5; // フィルターID1
+  uint32_t fId12 = 0x202 << 5; // フィルターID2
+  uint32_t fId13 = 0x203 << 5; // フィルターID3
+  uint32_t fId14 = 0x204 << 5; // フィルターID4
 
+  CANfilter1.FilterIdHigh         = fId11;                  // フィルターID1
+  CANfilter1.FilterIdLow          = fId12;                  // フィルターID2
+  CANfilter1.FilterMaskIdHigh     = fId13;                  // フィルターID3
+  CANfilter1.FilterMaskIdLow      = fId14;                  // フィルターID4
+  CANfilter1.FilterScale          = CAN_FILTERSCALE_16BIT; // 16モード
+  CANfilter1.FilterFIFOAssignment = CAN_FILTER_FIFO0;      // FIFO0へ格納
+  CANfilter1.FilterBank           = 0;                     
+  CANfilter1.FilterMode           = CAN_FILTERMODE_IDLIST; // IDリストモード
+  CANfilter1.SlaveStartFilterBank = 14;
+  CANfilter1.FilterActivation     = ENABLE;
+
+  HAL_CAN_ConfigFilter(&hcan1, &CANfilter1);
   /* USER CODE END CAN1_Init 2 */
 
 }
@@ -226,7 +258,24 @@ static void MX_CAN2_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN CAN2_Init 2 */
+  CAN_FilterTypeDef CANfilter2;
+  uint32_t fId21 = 0x201 << 5; // フィルターID1
+  uint32_t fId22 = 0x202 << 5; // フィルターID2
+  uint32_t fId23 = 0x203 << 5; // フィルターID3
+  uint32_t fId24 = 0x204 << 5; // フィルターID4
 
+  CANfilter2.FilterIdHigh         = fId21;                  // フィルターID1
+  CANfilter2.FilterIdLow          = fId22;                  // フィルターID2
+  CANfilter2.FilterMaskIdHigh     = fId23;                  // フィルターID3
+  CANfilter2.FilterMaskIdLow      = fId24;                  // フィルターID4
+  CANfilter2.FilterScale          = CAN_FILTERSCALE_16BIT; // 16モード
+  CANfilter2.FilterFIFOAssignment = CAN_FILTER_FIFO0;      // FIFO0へ格納
+  CANfilter2.FilterBank           = 14;                     
+  CANfilter2.FilterMode           = CAN_FILTERMODE_IDLIST; // IDリストモード
+  CANfilter2.SlaveStartFilterBank = 14;
+  CANfilter2.FilterActivation     = ENABLE;
+
+  HAL_CAN_ConfigFilter(&hcan2, &CANfilter2);
   /* USER CODE END CAN2_Init 2 */
 
 }
@@ -307,10 +356,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : DIP1_Pin DIP2_Pin ENC2_A_Pin ENC2_B_Pin
-                           DIP3_Pin DIP4_Pin */
-  GPIO_InitStruct.Pin = DIP1_Pin|DIP2_Pin|ENC2_A_Pin|ENC2_B_Pin
-                          |DIP3_Pin|DIP4_Pin;
+  /*Configure GPIO pins : DIP1_Pin DIP2_Pin DIP3_Pin DIP4_Pin */
+  GPIO_InitStruct.Pin = DIP1_Pin|DIP2_Pin|DIP3_Pin|DIP4_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : ENC2_A_Pin ENC2_B_Pin */
+  GPIO_InitStruct.Pin = ENC2_A_Pin|ENC2_B_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -375,7 +428,34 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+uint32_t id;
+uint32_t dlc;
+uint8_t data[8];
 
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
+    CAN_RxHeaderTypeDef RxHeader;
+    uint8_t RxData[8];
+
+    if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK)
+    {
+        id = (RxHeader.IDE == CAN_ID_STD)? RxHeader.StdId : RxHeader.ExtId;     // ID
+        dlc = RxHeader.DLC;                                                     // DLC
+        data[0] = RxData[0];                                                    // Data
+        data[1] = RxData[1];
+        data[2] = RxData[2];
+        data[3] = RxData[3];
+        data[4] = RxData[4];
+        data[5] = RxData[5];
+        data[6] = RxData[6];
+        data[7] = RxData[7];
+    }
+
+    printf("time:%d Get data:",HAL_GetTick());
+    for (int i=0;i<=7;i++){
+      printf("%d,",data[i]);
+    }
+    printf(" from:%d\n\r",id);
+  }
 /* USER CODE END 4 */
 
 /**
@@ -389,6 +469,10 @@ void Error_Handler(void)
   __disable_irq();
   while (1)
   {
+    HAL_GPIO_WritePin(BZ_GPIO_Port, BZ_Pin, GPIO_PIN_SET);
+    HAL_Delay(200);
+    HAL_GPIO_WritePin(BZ_GPIO_Port, BZ_Pin, GPIO_PIN_RESET);
+    HAL_Delay(200);
   }
   /* USER CODE END Error_Handler_Debug */
 }
