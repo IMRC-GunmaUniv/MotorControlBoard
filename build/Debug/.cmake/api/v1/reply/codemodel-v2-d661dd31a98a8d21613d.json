@@ -60,14 +60,14 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "MotorControlBoard::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-MotorControlBoard-Debug-3f9ea30e75d5d3723d58.json",
+					"jsonFile" : "target-MotorControlBoard-Debug-f70011be944e98f3f71d.json",
 					"name" : "MotorControlBoard",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 1,
 					"id" : "STM32_Drivers::@768a070a0fe75716b479",
-					"jsonFile" : "target-STM32_Drivers-Debug-a64940b40a7c9ec1cb2d.json",
+					"jsonFile" : "target-STM32_Drivers-Debug-913d1eefd5c3191424d7.json",
 					"name" : "STM32_Drivers",
 					"projectIndex" : 0
 				}
@@ -77,8 +77,8 @@
 	"kind" : "codemodel",
 	"paths" : 
 	{
-		"build" : "C:/Users/miyaz/IMRC_Program/MotorControlBoard/build/Debug",
-		"source" : "C:/Users/miyaz/IMRC_Program/MotorControlBoard"
+		"build" : "C:/Users/3reyu/Documents/GitHub/MotorControlBoard/build/Debug",
+		"source" : "C:/Users/3reyu/Documents/GitHub/MotorControlBoard"
 	},
 	"version" : 
 	{

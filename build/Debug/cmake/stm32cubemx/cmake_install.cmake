@@ -1,4 +1,4 @@
-# Install script for directory: C:/Users/miyaz/IMRC_Program/MotorControlBoard/cmake/stm32cubemx
+# Install script for directory: C:/Users/3reyu/Documents/GitHub/MotorControlBoard/cmake/stm32cubemx
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
