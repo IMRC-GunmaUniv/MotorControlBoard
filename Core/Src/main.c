@@ -52,6 +52,12 @@ uint8_t TxData_RM[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // CAN送信用データ
 #define MOTOR_A 0
 #define MOTOR_B 1
 #define MOTOR_C 2
+
+uint32_t id_ESP;
+uint32_t dlc_ESP;
+uint8_t data_ESP[8];
+CAN_RxHeaderTypeDef RxHeader_ESP;
+uint8_t RxData_ESP[8];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -75,9 +81,9 @@ int __io_putchar(int ch)
 /* USER CODE END 0 */
 
 /**
- * @brief  The application entry point.
- * @retval int
- */
+  * @brief  The application entry point.
+  * @retval int
+  */
 int main(void)
 {
 
@@ -111,7 +117,7 @@ int main(void)
 
   HAL_CAN_Start(&hcan1);
   HAL_CAN_Start(&hcan2);
-  // HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO1_MSG_PENDING);
   HAL_CAN_ActivateNotification(&hcan2, CAN_IT_RX_FIFO0_MSG_PENDING);
 
   // 起動サイン
@@ -147,27 +153,32 @@ int main(void)
       // printf("Motor OFF\n\r");
     }
     print_CAN_data();
+    /*
+    printf("0:%d 1:%d 2:%d 3:%d 4:%d 5:%d 6:%d 7:%d\n\r",
+           data_ESP[0], data_ESP[1], data_ESP[2], data_ESP[3],
+           data_ESP[4], data_ESP[5], data_ESP[6], data_ESP[7]);
+    */
   }
   /* USER CODE END 3 */
 }
 
 /**
- * @brief System Clock Configuration
- * @retval None
- */
+  * @brief System Clock Configuration
+  * @retval None
+  */
 void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
   /** Configure the main internal regulator output voltage
-   */
+  */
   __HAL_RCC_PWR_CLK_ENABLE();
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
 
   /** Initializes the RCC Oscillators according to the specified parameters
-   * in the RCC_OscInitTypeDef structure.
-   */
+  * in the RCC_OscInitTypeDef structure.
+  */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
@@ -183,8 +194,9 @@ void SystemClock_Config(void)
   }
 
   /** Initializes the CPU, AHB and APB buses clocks
-   */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
@@ -197,10 +209,10 @@ void SystemClock_Config(void)
 }
 
 /**
- * @brief CAN1 Initialization Function
- * @param None
- * @retval None
- */
+  * @brief CAN1 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_CAN1_Init(void)
 {
 
@@ -234,26 +246,41 @@ static void MX_CAN1_Init(void)
   uint32_t fId13 = 0x203 << 5; // フィルターID3
   uint32_t fId14 = 0x204 << 5; // フィルターID4
 
-  CANfilter1.FilterIdHigh = fId11;                    // フィルターID1
-  CANfilter1.FilterIdLow = fId12;                     // フィルターID2
-  CANfilter1.FilterMaskIdHigh = fId13;                // フィルターID3
-  CANfilter1.FilterMaskIdLow = fId14;                 // フィルターID4
+  /*
+  CANfilter1.FilterMode = CAN_FILTERMODE_IDMASK; // ← マスクモードに変更
+  CANfilter1.FilterIdHigh = 0x0000;
+  CANfilter1.FilterIdLow  = 0x0000;
+  CANfilter1.FilterMaskIdHigh = 0x0000;
+  CANfilter1.FilterMaskIdLow  = 0x0000;              // フィルターID4
   CANfilter1.FilterScale = CAN_FILTERSCALE_16BIT;     // 16モード
   CANfilter1.FilterFIFOAssignment = CAN_FILTER_FIFO0; // FIFO0へ格納
   CANfilter1.FilterBank = 0;
   CANfilter1.FilterMode = CAN_FILTERMODE_IDLIST; // IDリストモード
   CANfilter1.SlaveStartFilterBank = 14;
   CANfilter1.FilterActivation = ENABLE;
+  */
+
+  CANfilter1.FilterBank = 0;                      // フィルターバンク番号
+  CANfilter1.FilterMode = CAN_FILTERMODE_IDMASK;  // マスクモード（IDの一部を無視できる）
+  CANfilter1.FilterScale = CAN_FILTERSCALE_32BIT; // 32ビットスケーリング
+  CANfilter1.FilterIdHigh = 0x0000;               // 受け入れるID → 無視（全て通す）
+  CANfilter1.FilterIdLow = 0x0000;
+  CANfilter1.FilterMaskIdHigh = 0x0000; // マスク全ビット0で全て受信
+  CANfilter1.FilterMaskIdLow = 0x0000;
+  CANfilter1.FilterFIFOAssignment = CAN_FILTER_FIFO1; // FIFO1に割り当て
+  CANfilter1.FilterActivation = ENABLE;
+  CANfilter1.SlaveStartFilterBank = 14; // CAN2との共用境界（必要なら）
 
   HAL_CAN_ConfigFilter(&hcan1, &CANfilter1);
   /* USER CODE END CAN1_Init 2 */
+
 }
 
 /**
- * @brief CAN2 Initialization Function
- * @param None
- * @retval None
- */
+  * @brief CAN2 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_CAN2_Init(void)
 {
 
@@ -287,10 +314,10 @@ static void MX_CAN2_Init(void)
   uint32_t fId23 = 0x203 << 5; // フィルターID3
   uint32_t fId24 = 0x204 << 5; // フィルターID4
 
-  CANfilter2.FilterIdHigh = fId21;                    // フィルターID1
-  CANfilter2.FilterIdLow = fId22;                     // フィルターID2
-  CANfilter2.FilterMaskIdHigh = fId23;                // フィルターID3
-  CANfilter2.FilterMaskIdLow = fId24;                 // フィルターID4
+  CANfilter2.FilterIdHigh = fId21;     // フィルターID1
+  CANfilter2.FilterIdLow = fId22;      // フィルターID2
+  CANfilter2.FilterMaskIdHigh = fId23; // フィルターID3
+  CANfilter2.FilterMaskIdLow = fId24;
   CANfilter2.FilterScale = CAN_FILTERSCALE_16BIT;     // 16モード
   CANfilter2.FilterFIFOAssignment = CAN_FILTER_FIFO0; // FIFO0へ格納
   CANfilter2.FilterBank = 14;
@@ -300,13 +327,14 @@ static void MX_CAN2_Init(void)
 
   HAL_CAN_ConfigFilter(&hcan2, &CANfilter2);
   /* USER CODE END CAN2_Init 2 */
+
 }
 
 /**
- * @brief USART3 Initialization Function
- * @param None
- * @retval None
- */
+  * @brief USART3 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_USART3_UART_Init(void)
 {
 
@@ -332,13 +360,14 @@ static void MX_USART3_UART_Init(void)
   /* USER CODE BEGIN USART3_Init 2 */
 
   /* USER CODE END USART3_Init 2 */
+
 }
 
 /**
- * @brief GPIO Initialization Function
- * @param None
- * @retval None
- */
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
@@ -353,16 +382,17 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, CAN_LED2_Pin | LED3_Pin | LED4_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, CAN_LED2_Pin|LED3_Pin|LED4_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, LED1_Pin | LED2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LED1_Pin|LED2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, M3_DIR_Pin | M4_DIR_Pin | M2_DIR_Pin | M2_DIRB10_Pin | BZ_Pin | CAN_LED1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, M3_DIR_Pin|M4_DIR_Pin|M2_DIR_Pin|M2_DIRB10_Pin
+                          |BZ_Pin|CAN_LED1_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : CAN_LED2_Pin LED3_Pin LED4_Pin */
-  GPIO_InitStruct.Pin = CAN_LED2_Pin | LED3_Pin | LED4_Pin;
+  GPIO_InitStruct.Pin = CAN_LED2_Pin|LED3_Pin|LED4_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -370,25 +400,26 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : ENC1_A_Pin ENC1_B_Pin ENC3_A_Pin ENC3_B_Pin
                            ENC4_A_Pin ENC4_B_Pin SW2_Pin */
-  GPIO_InitStruct.Pin = ENC1_A_Pin | ENC1_B_Pin | ENC3_A_Pin | ENC3_B_Pin | ENC4_A_Pin | ENC4_B_Pin | SW2_Pin;
+  GPIO_InitStruct.Pin = ENC1_A_Pin|ENC1_B_Pin|ENC3_A_Pin|ENC3_B_Pin
+                          |ENC4_A_Pin|ENC4_B_Pin|SW2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : DIP1_Pin DIP2_Pin DIP3_Pin DIP4_Pin */
-  GPIO_InitStruct.Pin = DIP1_Pin | DIP2_Pin | DIP3_Pin | DIP4_Pin;
+  GPIO_InitStruct.Pin = DIP1_Pin|DIP2_Pin|DIP3_Pin|DIP4_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : ENC2_A_Pin ENC2_B_Pin */
-  GPIO_InitStruct.Pin = ENC2_A_Pin | ENC2_B_Pin;
+  GPIO_InitStruct.Pin = ENC2_A_Pin|ENC2_B_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LED1_Pin LED2_Pin */
-  GPIO_InitStruct.Pin = LED1_Pin | LED2_Pin;
+  GPIO_InitStruct.Pin = LED1_Pin|LED2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -396,20 +427,21 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : M3_DIR_Pin M4_DIR_Pin M2_DIR_Pin M2_DIRB10_Pin
                            BZ_Pin CAN_LED1_Pin */
-  GPIO_InitStruct.Pin = M3_DIR_Pin | M4_DIR_Pin | M2_DIR_Pin | M2_DIRB10_Pin | BZ_Pin | CAN_LED1_Pin;
+  GPIO_InitStruct.Pin = M3_DIR_Pin|M4_DIR_Pin|M2_DIR_Pin|M2_DIRB10_Pin
+                          |BZ_Pin|CAN_LED1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : SW5_Pin SW4_Pin SW3_Pin */
-  GPIO_InitStruct.Pin = SW5_Pin | SW4_Pin | SW3_Pin;
+  GPIO_InitStruct.Pin = SW5_Pin|SW4_Pin|SW3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : M1_PWM_Pin M2_PWM_Pin */
-  GPIO_InitStruct.Pin = M1_PWM_Pin | M2_PWM_Pin;
+  GPIO_InitStruct.Pin = M1_PWM_Pin|M2_PWM_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -433,7 +465,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : M3_PWM_Pin M4_PWM_Pin */
-  GPIO_InitStruct.Pin = M3_PWM_Pin | M4_PWM_Pin;
+  GPIO_InitStruct.Pin = M3_PWM_Pin|M4_PWM_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -454,7 +486,7 @@ uint8_t RxData[8];
 uint32_t CAN_Rx_timer[3] = {0, 0, 0};          // CAN受信タイマー
 uint16_t CAN_ID_Rx[3] = {0x201, 0x202, 0x203}; // CAN受信ID
 uint16_t CAN_Rx_Counter[3] = {0, 0, 0};        // CAN受信カウンター
-uint8_t CAN_Rx_Motor_Read = 0; // CAN受信モーターデータ読み込みフラグ
+uint8_t CAN_Rx_Motor_Read = 0;                 // CAN受信モーターデータ読み込みフラグ
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
@@ -479,17 +511,40 @@ void print_CAN_data()
   {
     if (id == CAN_ID_Rx[i])
     {
-      CAN_Rx_timer[i] = HAL_GetTick();                           // タイマーリセット
-      //HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET); LED2を点灯
+      CAN_Rx_timer[i] = HAL_GetTick(); // タイマーリセット
+      // HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET); LED2を点灯
 
       int16_t _angle = (data[0] << 8) | data[1];
       int16_t _speed = (data[2] << 8) | data[3];
       int16_t _torque = (data[4] << 8) | data[5];
       CAN_Rx_Counter[i]++;
-      if(CAN_Rx_Motor_Read == 1) printf("%d, Angle:%d, speed:%d, torque:%d\n\r", i, _angle, _speed, _torque);
+      if (CAN_Rx_Motor_Read == 1)
+        printf("%d, Angle:%d, speed:%d, torque:%d\n\r", i, _angle, _speed, _torque);
     }
   }
-  //HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET); LED2を消灯
+  // HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET); LED2を消灯
+}
+
+void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+  if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO1, &RxHeader_ESP, RxData_ESP) == HAL_OK)
+  {
+    // id_ESP = (RxHeader_ESP.IDE == CAN_ID_STD) ? RxHeader_ESP.StdId : RxHeader_ESP.ExtId;
+    // dlc_ESP = RxHeader_ESP.DLC;
+    data_ESP[0] = RxData_ESP[0]; // Data
+    data_ESP[1] = RxData_ESP[1];
+    data_ESP[2] = RxData_ESP[2];
+    data_ESP[3] = RxData_ESP[3];
+    data_ESP[4] = RxData_ESP[4];
+    data_ESP[5] = RxData_ESP[5];
+    data_ESP[6] = RxData_ESP[6];
+    data_ESP[7] = RxData_ESP[7];
+
+    printf("CAN1 FIFO1: ID=0x%03X, DLC=%d, Data= %02X %02X %02X %02X %02X %02X %02X %02X\n\r",
+               RxHeader_ESP.StdId, RxHeader_ESP.DLC,
+               data_ESP[0], data_ESP[1], data_ESP[2], data_ESP[3],
+               data_ESP[4], data_ESP[5], data_ESP[6], data_ESP[7]);
+  }
 }
 
 void sendMotorPower(int _id, int _mA)
@@ -524,9 +579,9 @@ void sendMotorPower(int _id, int _mA)
 /* USER CODE END 4 */
 
 /**
- * @brief  This function is executed in case of error occurrence.
- * @retval None
- */
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
@@ -542,14 +597,14 @@ void Error_Handler(void)
   /* USER CODE END Error_Handler_Debug */
 }
 
-#ifdef USE_FULL_ASSERT
+#ifdef  USE_FULL_ASSERT
 /**
- * @brief  Reports the name of the source file and the source line number
- *         where the assert_param error has occurred.
- * @param  file: pointer to the source file name
- * @param  line: assert_param error line source number
- * @retval None
- */
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
