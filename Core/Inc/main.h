@@ -125,10 +125,10 @@ void Error_Handler(void);
 #define MOTOR_B 1
 #define MOTOR_C 2
 
-#define Forward 0
-#define Backward 1
-#define Left 2
-#define Right 3
+#define Button_UP 0
+#define Button_Down 1
+#define Button_Left 2
+#define Button_Right 3
 #define Button_A 4
 #define Button_B 5
 #define Button_X 6

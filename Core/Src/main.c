@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include "stdio.h"
 #include "stdlib.h"
+#include "stdbool.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -57,7 +58,7 @@ uint8_t data_ESP[8];
 CAN_RxHeaderTypeDef RxHeader_ESP;
 uint8_t RxData_ESP[8];
 
-uint8_t getBtnState[14] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // ボタンの状態を格納する配列
+uint8_t btnState[14] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // ボタンの状態を格納する配列
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -70,6 +71,7 @@ static void MX_USART3_UART_Init(void);
 void sendMotorPower(int, int);
 void print_CAN_data();
 void allBtnState();
+bool getBtnState(uint8_t);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -136,18 +138,41 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    if (HAL_GPIO_ReadPin(SW2_GPIO_Port, SW2_Pin) == GPIO_PIN_SET)
+    if (getBtnState(Button_UP))
     {
       // ボタンが押されている（Highレベル）
       HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
       sendMotorPower(MOTOR_A, 2000);
+      sendMotorPower(MOTOR_B, -2000);
+      sendMotorPower(MOTOR_C, 0);
+    }
+    else if (getBtnState(Button_Down))
+    {
+      HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+      sendMotorPower(MOTOR_A, -2000);
       sendMotorPower(MOTOR_B, 2000);
+      sendMotorPower(MOTOR_C, 0);
+    }
+    else if (getBtnState(Button_Left))
+    {
+      HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
+      sendMotorPower(MOTOR_A, 1000);
+      sendMotorPower(MOTOR_B, 1000);
+      sendMotorPower(MOTOR_C, -2000);
+    }
+    else if (getBtnState(Button_Right))
+    {
+      HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_SET);
+      sendMotorPower(MOTOR_A, -1000);
+      sendMotorPower(MOTOR_B, -1000);
       sendMotorPower(MOTOR_C, 2000);
-      // printf("Motor ON\n\r");
     }
     else
     {
       HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_RESET);
       sendMotorPower(MOTOR_A, 0);
       sendMotorPower(MOTOR_B, 0);
       sendMotorPower(MOTOR_C, 0);
@@ -542,11 +567,11 @@ void allBtnState()
 {
   for (int i = 0; i <= 7; i++)
   {
-    getBtnState[i] = ((data_ESP[1] >> i) & 1); // 初期化
+    btnState[i] = ((data_ESP[1] >> i) & 1); // 初期化
   }
   for (int i = 0; i <= 5; i++)
   {
-    getBtnState[8+i] = ((data_ESP[2] >> i) & 1); // 初期化
+    btnState[8+i] = ((data_ESP[2] >> i) & 1); // 初期化
   }
   if ((HAL_GetTick() - CAN_timer) > 50)
   {
@@ -554,9 +579,21 @@ void allBtnState()
 
     for (int i = 0; i < 14; i++)
     {
-      //printf("%c:%d ", btnName[i], getBtnState[i]);
+      //printf("%c:%d ", btnName[i], btnState[i]);
     }
     //printf("\n\r");
+  }
+}
+
+bool getBtnState(uint8_t  _btn)
+{
+  if(_btn >= 14)
+  {
+    return false; // 無効なボタン番号
+  }
+  else
+  {
+    return btnState[_btn]; // ボタンの状態を返す
   }
 }
 
