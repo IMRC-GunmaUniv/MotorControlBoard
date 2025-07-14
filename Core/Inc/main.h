@@ -121,7 +121,25 @@ void Error_Handler(void);
 #define CAN_LED1_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
+#define MOTOR_A 0
+#define MOTOR_B 1
+#define MOTOR_C 2
 
+#define Forward 0
+#define Backward 1
+#define Left 2
+#define Right 3
+#define Button_A 4
+#define Button_B 5
+#define Button_X 6
+#define Button_Y 7
+
+#define Button_L1 8
+#define Button_R1 9
+#define Button_L2 10
+#define Button_R2 11
+#define Button_LS 12
+#define Button_RS 13
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
